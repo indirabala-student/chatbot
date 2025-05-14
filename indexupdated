@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Disease Predictor</title>
+    <script>
+        let chatHistory = [];
+        let currentSpecialty = null;
+        
+        async function sendMessage() {
+            const userMessage = document.getElementById("userInput").value;
+            if (!userMessage.trim()) return;
+
+            displayMessage("You", userMessage);
+            document.getElementById("userInput").value = "";
+            
+            // Check if we should search for doctors
+            if (currentSpecialty && userMessage.length > 2) {
+                // This message might be a city name
+                await findDoctors(userMessage, currentSpecialty);
+                return;
+            }
+
+            const response = await fetch("/ask", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: userMessage, history: chatHistory })
+            });
+
+            const data = await response.json();
+            chatHistory = data.history;
+            
+            displayMessage("Medical-Assister", data.reply);
+            
+            // Check if the response suggests a specialist
+            const specialties = ["cardiologist", "neurologist", "pulmonologist", 
+                                 "gastroenterologist", "endocrinologist", "urologist", 
+                                 "dermatologist", "orthopedic", "ophthalmologist", 
+                                 "psychiatrist", "general physician"];
+                                 
+            // If severity is moderate or severe and mentions a specialist
+            if (data.reply.toLowerCase().includes("severity: moderate") || 
+                data.reply.toLowerCase().includes("severity: severe")) {
+                
+                for (let specialty of specialties) {
+                    if (data.reply.toLowerCase().includes(specialty)) {
+                        currentSpecialty = specialty;
+                        break;
+                    }
+                }
+            }
+        }
+
+        async function findDoctors(city, specialty) {
+            const response = await fetch("/find_doctors", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    city: city, 
+                    specialty: specialty,
+                    history: chatHistory 
+                })
+            });
+
+            const data = await response.json();
+            chatHistory = data.history;
+            displayMessage("Medical-Assister", data.message);
+            
+            // Reset specialty after finding doctors
+            currentSpecialty = null;
+        }
+
+        function displayMessage(sender, message) {
+            const chatBox = document.getElementById("chatBox");
+            const msgDiv = document.createElement("div");
+            msgDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            if(sender==="Medical-Assister"){
+            	speakMessage(message)
+            }
+        }
+        
+        function speakMessage(message) {
+            const utterance = new SpeechSynthesisUtterance(message);
+            speechSynthesis.speak(utterance);
+        }
+    	
+        function startRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('Your browser does not support speech recognition.');
+                return;
+            }
+        
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+        
+            recognition.start();
+        
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('userInput').value = transcript;
+                document.getElementById('sendmessage').click();
+            };
+        
+            recognition.onerror = function(event) {
+                alert('Error occurred: ' + event.error);
+            };
+        }
+
+        window.onload = () => {
+            displayMessage("Medical Assistance", "How can I help you today?");
+        };
+    </script>
+</head>
+<body>
+    <h1>Disease Prediction System</h1>
+    <div id="chatBox" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll;"></div>
+    <input type="text" id="userInput" placeholder="Enter your symptom..." style="width: 80%;">
+    <button onclick="startRecognition()">🎤</button>
+    <button id="sendmessage" onclick="sendMessage()">Send</button>
+    <script>
+    	var input = document.getElementById("userInput");
+        input.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                document.getElementById("sendmessage").click();
+            }
+        });
+    </script>
+</body>
+</html>
