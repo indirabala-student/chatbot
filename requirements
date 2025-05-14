@@ -1,0 +1,7 @@
+You must always post-process GPT replies and replace any fake doctor list with your CSV-based doctor list — whenever both city and specialty are known.
+
+Add real doctor data or appointment system.
+
+Log interactions or save chat history.
+
+Expand specialist mapping logic.
